@@ -8,13 +8,13 @@ This project analyzes ~16,000 Google Pay reviews to understand what users are ac
 
 ## Pipeline
 
-<img width="853" height="1843" alt="ChatGPT Image Sep 4, 2026, 03_03_30 AM" src="https://github.com/user-attachments/assets/d22a8cc1-20cb-4b70-8e85-c453f9d75509" />
-
+<img width="1024" height="1536" alt="ChatGPT Image Sep 6, 2026, 12_31_51 AM" src="https://github.com/user-attachments/assets/0bd29cf8-dd70-48fa-af42-fcc90fbda2b9" />
 
 1. **Ingestion** — `google-play-scraper` pulls reviews (text, rating, app version, date) for the Google Pay app.
 2. **Staging** — Raw review data is preserved as-is before any processing, for audit purposes.
 3. **NLP processing** — Each review passes through two Hugging Face models: a zero-shot classifier assigning one of 6 fixed aspect categories (with a confidence score), and a sentiment classifier scoring tone from -1 to +1. Reviews below a confidence threshold default to "General Feedback."
 4. **Data warehousing** — Results are normalized into a star schema in PostgreSQL (hosted on Supabase): `dim_review`, `dim_aspect`, `dim_date`, and `fact_review_sentiment`.
+5. **Feature engineering** - A cleaned `app_version_major` field is created from the raw version string. The Play Store API returns whichever version was installed on each reviewer's device, not the version live on the Store at the time — so the data included many old versions from users who hadn't updated, each with very few reviews. Versions were simplified to their major number, and low-volume ones grouped into an "Older/Minor Versions" bucket, so the analysis reflects the app's actual recent releases rather than outdated installs.
 5. **Analytical SQL layer** — Four views built on top of the warehouse compute severity-weighted complaint scores, sentiment/rating mismatch detection, rolling sentiment trends, and monthly aspect rankings, using CTEs and window functions (`RANK() OVER PARTITION BY`, `FILTER`, `ROWS BETWEEN`).
 6. **Visualization** — Power BI Desktop (Import mode) connects to the warehouse and views, modeling relationships and presenting a 3-page dashboard: Executive Overview, Aspect Deep Dive, and Release Impact.
 
@@ -60,19 +60,24 @@ This project analyzes ~16,000 Google Pay reviews to understand what users are ac
 
 ## Dashboard preview
 
+The dashboard is built as four connected pages, opening on a landing page that links out to the three analytical pages, each of which can navigate back home.
+
+### Landing Page
+An entry point introducing the project and providing navigation cards to each of the three report pages.
+
 ### Page 1 — Executive Overview
-Full-dataset snapshot: 5 KPI cards (Total Reviews, Avg. Sentiment, % Negative, % High Severity, Avg. Star Rating), 5 slicers, a DAX-driven 7-day rolling sentiment trend, an aspect breakdown donut with a custom drill-down tooltip, a sentiment-by-aspect comparison, and a data-backed Key Insights panel.
+A high-level snapshot of the full dataset: KPI cards, five slicers, a 7-day rolling sentiment trend, an aspect-breakdown donut with a custom per-aspect severity tooltip, a sentiment-by-aspect comparison, and a Key Insights panel. Surfaces the standout finding that Account Security & Fraud Risk is only ~1.3% of reviews but ~97% high-severity.
 
 ### Page 2 — Aspect Deep Dive
-Investigates model trustworthiness and severity by category: a severity ranking (via `RANKX` over `ALL()`), a scatter plot of user rating vs. model sentiment, a rating-sentiment mismatch breakdown built on `vw_sentiment_rating_mismatch`, and a table of top flagged reviews. Includes custom measures using `FILTER`+`RELATED` and `SWITCH(TRUE())`, plus drill-through from Page 1's aspect chart.
+Investigates a single aspect in depth: a severity ranking (RANKX over ALL()), a scatter plot of user rating vs. model sentiment surfacing mismatches, a mismatch-type breakdown, and a table of the actual flagged reviews. Uses FILTER+RELATED and SWITCH(TRUE()) measures, and is reachable via drill-through from Page 1.
 
-### Page 3 - Release Impact
-sentiment trend by app version, monthly complaint ranking
+### Page 3 — Release Impact
+Tracks sentiment across app versions: a KPI row (versions tracked, best/worst version, trend direction), a sentiment-trend-by-version line chart, a version comparison table ranked by sentiment, a "Most-Upvoted Complaints" table (weighting complaints by user upvotes to distinguish widespread from isolated problems), and a Quarter → Month → Week drill-down.
 
 The `.pbix` file is available in `analytics/dashboard/`.
 
 ## Future scope
 
-- **Multilingual sentiment support** — the current model (`distilbert-base-uncased-finetuned-sst-2-english`) is English-only. Reviews written in Hindi or Hinglish likely receive less reliable sentiment scores. A natural next step is swapping in a multilingual model such as XLM-RoBERTa to properly handle mixed-language review text.
+- **Multilingual sentiment support** — The current sentiment model (distilbert-base-uncased-finetuned-sst-2-english) is English-only, and reviews are scraped with an English-language filter at ingestion. Hindi-script reviews are excluded before reaching the pipeline; Hinglish (Hindi in Latin script) may partially pass through and receive unreliable scores. A natural next step is a multilingual model such as XLM-RoBERTa..
 - **Longer historical range** — the current dataset spans ~4-5 months due to how far back Play Store scraping can practically reach for a high-volume app. Running the scraper on a recurring schedule (e.g. weekly) would build up a multi-year archive over time, enabling true year-over-year trend analysis.
 - **Scheduled refresh** — the dashboard currently runs in Import mode with manual refresh. Publishing to Power BI Service with a scheduled refresh (or a cloud-hosted trigger for the Python pipeline) would make the dashboard update automatically as new reviews come in.
