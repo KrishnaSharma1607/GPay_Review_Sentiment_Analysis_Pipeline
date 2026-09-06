@@ -4,7 +4,7 @@ An end-to-end data pipeline that scrapes Google Pay reviews from the Play Store,
 
 ## Overview
 
-This project analyzes ~16,000 Google Pay reviews to understand what users are actually complaining about and how severe those complaints are. Each review is classified into one of 6 business-relevant categories (Transactions, Security, Rewards, Credit, App Performance, or General Feedback) and scored for sentiment using pre-trained Hugging Face transformer models. The processed data is normalized into a Kimball-style star schema, with four analytical SQL views computing severity scores, rolling sentiment trends, and NLP validation metrics using CTEs and window functions. The final output is a branded, interactive Power BI dashboard supporting drill-through, custom tooltips, and dynamic DAX measures.
+This project analyzes ~16,000 Google Pay reviews to understand what users are actually complaining about and how severe those complaints are. Each review is classified into one of 6 business-relevant categories (Transactions, Security, Rewards, Credit, App Performance, or General Feedback) and scored for sentiment using pre-trained Hugging Face transformer models. The processed data is normalized into a Kimball-style star schema, with four analytical SQL views computing severity scores, rolling sentiment trends, and NLP validation metrics using CTEs and window functions. The final output is a branded, interactive Power BI dashboard supporting drill-through, drill-down, custom tooltips, and dynamic DAX measures.
 
 ## Pipeline
 
